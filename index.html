@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Secondslide Product Catalog</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        brand: { cyan: '#00C8FF', dark: '#232b2b' },
+        navy: { DEFAULT: '#1a3a5c', light: '#244b73', dark: '#0f2640' },
+        slate: { 50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 300: '#cbd5e1', 400: '#94a3b8', 500: '#64748b', 600: '#475569', 700: '#334155', 800: '#1e293b', 900: '#0f172a' }
+      },
+      fontFamily: {
+        sans: ['DM Sans', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'monospace'],
+      }
+    }
+  }
+}
+</script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'DM Sans', system-ui, sans-serif; background: #f1f5f9; margin: 0; }
+
+  /* Search input styling */
+  .search-input:focus { outline: none; box-shadow: 0 0 0 3px rgba(0, 200, 255, 0.25); }
+
+  /* Card hover */
+  .product-card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    cursor: pointer;
+  }
+  .product-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px -5px rgba(0,0,0,0.1), 0 4px 10px -5px rgba(0,0,0,0.05);
+  }
+
+  /* Image placeholder */
+  .img-placeholder {
+    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .img-placeholder svg { width: 40px; height: 40px; color: #94a3b8; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+  /* Modal */
+  .modal-backdrop { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); }
+
+  /* Badge */
+  .badge {
+    display: inline-flex; align-items: center; padding: 2px 8px;
+    border-radius: 9999px; font-size: 11px; font-weight: 500; letter-spacing: 0.02em;
+  }
+
+  /* Filter dropdown */
+  .filter-select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+  }
+  .filter-select:focus { outline: none; border-color: #00C8FF; box-shadow: 0 0 0 2px rgba(0,200,255,0.15); }
+
+  /* Brand search dropdown */
+  .brand-dropdown { max-height: 280px; overflow-y: auto; }
+
+  /* Loading animation */
+  @keyframes pulse-bar { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+  .loading-bar { animation: pulse-bar 1.2s ease-in-out infinite; }
+  .loading-bar:nth-child(2) { animation-delay: 0.15s; }
+  .loading-bar:nth-child(3) { animation-delay: 0.3s; }
+  .loading-bar:nth-child(4) { animation-delay: 0.45s; }
+
+  /* Skeleton cards */
+  @keyframes shimmer {
+    0% { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+  }
+  .skeleton {
+    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 37%, #e2e8f0 63%);
+    background-size: 800px 100%;
+    animation: shimmer 1.5s infinite linear;
+  }
+
+  /* Page transition */
+  .results-grid { animation: fadeUp 0.25s ease; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="bg-navy-dark text-white sticky top-0 z-40 shadow-lg">
+  <div class="max-w-[1600px] mx-auto px-4 sm:px-6">
+    <!-- Top bar -->
+    <div class="flex items-center justify-between h-14">
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1.5">
+          <svg width="24" height="24" viewBox="0 0 100 100" class="shrink-0">
+            <path d="M25 50 C25 30, 50 30, 50 50 C50 70, 75 70, 75 50 C75 30, 50 30, 50 50 C50 70, 25 70, 25 50Z" fill="none" stroke="#00C8FF" stroke-width="6"/>
+            <path d="M25 50 C25 70, 50 70, 50 50 C50 30, 75 30, 75 50 C75 70, 50 70, 50 50 C50 30, 25 30, 25 50Z" fill="none" stroke="white" stroke-width="6"/>
+          </svg>
+          <span class="text-sm font-semibold tracking-wide">SECONDSLIDE</span>
+        </div>
+        <span class="text-slate-400 text-sm hidden sm:inline">/</span>
+        <span class="text-slate-300 text-sm font-medium hidden sm:inline">Product Catalog</span>
+      </div>
+      <div class="flex items-center gap-3 text-xs text-slate-400">
+        <span id="dataTimestamp" class="hidden sm:inline"></span>
+        <kbd class="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 bg-navy rounded text-[10px] text-slate-400 border border-navy-light">/</kbd>
+      </div>
+    </div>
+
+    <!-- Search bar -->
+    <div class="pb-3">
+      <div class="relative">
+        <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input
+          id="searchInput"
+          type="text"
+          placeholder="Search by product name, style #, brand, or color..."
+          class="search-input w-full h-12 pl-12 pr-4 bg-navy rounded-lg text-white placeholder-slate-400 text-[15px] border border-navy-light focus:border-brand-cyan"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <div id="searchClear" class="absolute right-4 top-1/2 -translate-y-1/2 hidden cursor-pointer text-slate-400 hover:text-white">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Tabs -->
+<div class="bg-white border-b border-slate-200 sticky top-[104px] z-30">
+  <div class="max-w-[1600px] mx-auto px-4 sm:px-6">
+    <div class="flex items-center gap-0">
+      <button id="tabAll" onclick="switchTab('all')" class="tab-btn px-5 py-2.5 text-sm font-medium border-b-2 border-brand-cyan text-brand-cyan">
+        All Products
+      </button>
+      <button id="tabFavorites" onclick="switchTab('favorites')" class="tab-btn px-5 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700">
+        Secondslide Favorites
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Filters (shown on All Products tab) -->
+<div id="filterBar" class="bg-white border-b border-slate-200 sticky top-[148px] z-29 shadow-sm">
+  <div class="max-w-[1600px] mx-auto px-4 sm:px-6 py-2.5">
+    <div class="flex flex-wrap items-center gap-2">
+      <!-- Category -->
+      <select id="filterCategory" class="filter-select h-8 px-3 text-sm bg-white border border-slate-200 rounded-md text-slate-700">
+        <option value="">All Categories</option>
+      </select>
+
+      <!-- Brand (searchable) -->
+      <div class="relative" id="brandFilterWrap">
+        <input
+          id="filterBrandInput"
+          type="text"
+          placeholder="All Brands"
+          class="h-8 w-40 px-3 text-sm bg-white border border-slate-200 rounded-md text-slate-700 focus:outline-none focus:border-brand-cyan focus:ring-1 focus:ring-brand-cyan/20"
+          autocomplete="off"
+        />
+        <div id="brandDropdown" class="brand-dropdown absolute top-full left-0 mt-1 w-64 bg-white border border-slate-200 rounded-lg shadow-xl z-50 hidden"></div>
+      </div>
+
+      <!-- Gender -->
+      <select id="filterGender" class="filter-select h-8 px-3 text-sm bg-white border border-slate-200 rounded-md text-slate-700">
+        <option value="">All Genders</option>
+      </select>
+
+      <!-- Subcategory (dynamic, only shows when category selected) -->
+      <select id="filterSubcategory" class="filter-select h-8 px-3 text-sm bg-white border border-slate-200 rounded-md text-slate-700 hidden">
+        <option value="">All Subcategories</option>
+      </select>
+
+      <!-- Supplier/Vendor -->
+      <select id="filterSupplier" class="filter-select h-8 px-3 text-sm bg-white border border-slate-200 rounded-md text-slate-700">
+        <option value="">All Vendors</option>
+      </select>
+
+      <!-- Price range -->
+      <div class="flex items-center gap-1">
+        <span class="text-xs text-slate-400">$</span>
+        <input id="filterPriceMin" type="number" placeholder="Min" class="h-8 w-16 px-2 text-sm bg-white border border-slate-200 rounded-md text-slate-700 focus:outline-none focus:border-brand-cyan" />
+        <span class="text-xs text-slate-400">-</span>
+        <input id="filterPriceMax" type="number" placeholder="Max" class="h-8 w-16 px-2 text-sm bg-white border border-slate-200 rounded-md text-slate-700 focus:outline-none focus:border-brand-cyan" />
+      </div>
+
+      <!-- Clear -->
+      <button id="clearFilters" class="h-8 px-3 text-xs text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors hidden">
+        Clear filters
+      </button>
+
+      <!-- Spacer -->
+      <div class="flex-1"></div>
+
+      <!-- Result count -->
+      <div id="resultCount" class="text-sm text-slate-500 font-medium"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Favorites View (hidden by default) -->
+<div id="favoritesView" class="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 hidden"></div>
+
+<!-- Loading State -->
+<div id="loadingState" class="max-w-[1600px] mx-auto px-4 sm:px-6 py-12">
+  <div class="flex flex-col items-center justify-center gap-4">
+    <div class="flex items-end gap-1.5 h-10">
+      <div class="loading-bar w-1.5 h-4 bg-brand-cyan rounded-full"></div>
+      <div class="loading-bar w-1.5 h-7 bg-brand-cyan rounded-full"></div>
+      <div class="loading-bar w-1.5 h-10 bg-brand-cyan rounded-full"></div>
+      <div class="loading-bar w-1.5 h-6 bg-brand-cyan rounded-full"></div>
+    </div>
+    <p class="text-slate-500 text-sm">Loading catalog...</p>
+  </div>
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mt-8">
+    ${Array(10).fill('').map(() => `
+    <div class="bg-white rounded-lg overflow-hidden">
+      <div class="skeleton h-48 w-full"></div>
+      <div class="p-3 space-y-2">
+        <div class="skeleton h-4 w-3/4 rounded"></div>
+        <div class="skeleton h-3 w-1/2 rounded"></div>
+        <div class="skeleton h-3 w-1/3 rounded"></div>
+      </div>
+    </div>
+    `).join('')}
+  </div>
+</div>
+
+<!-- Results -->
+<main id="resultsArea" class="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 hidden">
+  <!-- Empty state -->
+  <div id="emptyState" class="hidden flex flex-col items-center justify-center py-20 text-center">
+    <svg class="w-16 h-16 text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+    </svg>
+    <p class="text-slate-500 text-lg font-medium">No products found</p>
+    <p class="text-slate-400 text-sm mt-1">Try adjusting your search or filters</p>
+  </div>
+
+  <!-- Product grid -->
+  <div id="productGrid" class="results-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"></div>
+
+  <!-- Pagination -->
+  <div id="pagination" class="flex items-center justify-center gap-2 py-6 mt-2"></div>
+</main>
+
+<!-- Detail Modal -->
+<div id="detailModal" class="fixed inset-0 z-50 hidden">
+  <div class="modal-backdrop absolute inset-0" onclick="closeModal()"></div>
+  <div class="absolute inset-4 sm:inset-8 md:inset-y-8 md:inset-x-[10%] lg:inset-x-[15%] bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <h2 id="modalTitle" class="text-lg font-semibold text-slate-900 truncate"></h2>
+      <button onclick="closeModal()" class="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+        <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="modalBody" class="flex-1 overflow-y-auto p-6"></div>
+  </div>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+let catalog = null;
+let fuse = null;
+let filtered = [];
+let currentPage = 1;
+const PAGE_SIZE = 60;
+let selectedBrand = '';
+
+// ---------------------------------------------------------------------------
+// DOM refs
+// ---------------------------------------------------------------------------
+const $search = document.getElementById('searchInput');
+const $searchClear = document.getElementById('searchClear');
+const $category = document.getElementById('filterCategory');
+const $brandInput = document.getElementById('filterBrandInput');
+const $brandDropdown = document.getElementById('brandDropdown');
+const $gender = document.getElementById('filterGender');
+const $subcategory = document.getElementById('filterSubcategory');
+const $supplier = document.getElementById('filterSupplier');
+const $priceMin = document.getElementById('filterPriceMin');
+const $priceMax = document.getElementById('filterPriceMax');
+const $clearBtn = document.getElementById('clearFilters');
+const $resultCount = document.getElementById('resultCount');
+const $grid = document.getElementById('productGrid');
+const $pagination = document.getElementById('pagination');
+const $loading = document.getElementById('loadingState');
+const $results = document.getElementById('resultsArea');
+const $empty = document.getElementById('emptyState');
+const $modal = document.getElementById('detailModal');
+
+// ---------------------------------------------------------------------------
+// Load data
+// ---------------------------------------------------------------------------
+async function init() {
+  try {
+    const res = await fetch('./catalog-data.json');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    catalog = await res.json();
+
+    // Show data timestamp
+    if (catalog.exported) {
+      const d = new Date(catalog.exported);
+      document.getElementById('dataTimestamp').textContent =
+        `Updated ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    }
+
+    // Build Fuse index
+    fuse = new Fuse(catalog.products, {
+      keys: [
+        { name: 'n', weight: 3 },   // name
+        { name: 's', weight: 2.5 }, // style number
+        { name: 'b', weight: 2 },   // brand
+        { name: 'cl', weight: 1 },  // colors
+      ],
+      threshold: 0.3,
+      ignoreLocation: true,
+      minMatchCharLength: 2,
+    });
+
+    // Populate filters
+    populateFilters();
+
+    // Show results
+    $loading.classList.add('hidden');
+    $results.classList.remove('hidden');
+
+    // Apply URL hash state
+    loadHashState();
+
+    // Initial render
+    applyFilters();
+
+    // Focus search
+    $search.focus();
+  } catch (err) {
+    $loading.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-20">
+        <p class="text-red-500 font-medium">Failed to load catalog</p>
+        <p class="text-slate-400 text-sm mt-1">${err.message}</p>
+        <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-navy text-white rounded-lg text-sm hover:bg-navy-light">Retry</button>
+      </div>`;
+  }
+}
+
+function populateFilters() {
+  // Categories
+  for (const cat of catalog.categories) {
+    const opt = document.createElement('option');
+    opt.value = cat;
+    opt.textContent = cat;
+    $category.appendChild(opt);
+  }
+
+  // Genders
+  for (const g of catalog.genders) {
+    const opt = document.createElement('option');
+    opt.value = g;
+    opt.textContent = g;
+    $gender.appendChild(opt);
+  }
+
+  // Suppliers
+  if (catalog.suppliers) {
+    for (const s of catalog.suppliers) {
+      const opt = document.createElement('option');
+      opt.value = s;
+      opt.textContent = s;
+      $supplier.appendChild(opt);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Brand search dropdown
+// ---------------------------------------------------------------------------
+function renderBrandDropdown(query) {
+  const brands = catalog.brands.filter(b =>
+    !query || b.toLowerCase().includes(query.toLowerCase())
+  );
+  if (brands.length === 0) {
+    $brandDropdown.innerHTML = '<div class="px-3 py-2 text-sm text-slate-400">No brands found</div>';
+  } else {
+    $brandDropdown.innerHTML = brands.slice(0, 50).map(b => `
+      <div class="px-3 py-1.5 text-sm text-slate-700 hover:bg-brand-cyan/10 cursor-pointer ${b === selectedBrand ? 'bg-brand-cyan/10 font-medium' : ''}"
+           onclick="selectBrand('${b.replace(/'/g, "\\'")}')">
+        ${b}
+      </div>
+    `).join('');
+  }
+  $brandDropdown.classList.remove('hidden');
+}
+
+function selectBrand(brand) {
+  selectedBrand = brand;
+  $brandInput.value = brand;
+  $brandDropdown.classList.add('hidden');
+  applyFilters();
+}
+
+$brandInput.addEventListener('focus', () => renderBrandDropdown($brandInput.value));
+$brandInput.addEventListener('input', () => {
+  if ($brandInput.value === '') selectedBrand = '';
+  renderBrandDropdown($brandInput.value);
+  debounceFilter();
+});
+document.addEventListener('click', (e) => {
+  if (!document.getElementById('brandFilterWrap').contains(e.target)) {
+    $brandDropdown.classList.add('hidden');
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Subcategory (dynamic based on category)
+// ---------------------------------------------------------------------------
+function updateSubcategoryFilter() {
+  const cat = $category.value;
+  $subcategory.innerHTML = '<option value="">All Subcategories</option>';
+  if (cat && catalog.subcategories[cat]) {
+    for (const sc of catalog.subcategories[cat]) {
+      const opt = document.createElement('option');
+      opt.value = sc;
+      opt.textContent = sc;
+      $subcategory.appendChild(opt);
+    }
+    $subcategory.classList.remove('hidden');
+  } else {
+    $subcategory.classList.add('hidden');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Filtering
+// ---------------------------------------------------------------------------
+let filterTimer;
+function debounceFilter() {
+  clearTimeout(filterTimer);
+  filterTimer = setTimeout(applyFilters, 150);
+}
+
+function applyFilters() {
+  const query = $search.value.trim();
+  const cat = $category.value;
+  const brand = selectedBrand;
+  const gender = $gender.value;
+  const subcat = $subcategory.value;
+  const supplier = $supplier.value;
+  const priceMin = parseFloat($priceMin.value) || 0;
+  const priceMax = parseFloat($priceMax.value) || Infinity;
+
+  // Show/hide clear button
+  const hasFilters = query || cat || brand || gender || subcat || supplier || priceMin > 0 || priceMax < Infinity;
+  $clearBtn.classList.toggle('hidden', !hasFilters);
+  $searchClear.classList.toggle('hidden', !query);
+
+  // Text search — scored ranking with style number priority
+  let results;
+  if (query.length >= 2) {
+    const q = query.toLowerCase().trim();
+    const terms = q.split(/\s+/).filter(t => t.length >= 1);
+    // Separate alpha and numeric terms for smart matching
+    const numericTerms = terms.filter(t => /\d/.test(t));
+    const alphaTerms = terms.filter(t => !/\d/.test(t));
+
+    const scored = [];
+    for (const p of catalog.products) {
+      const style = (p.s || '').toLowerCase();
+      const name = (p.n || '').toLowerCase();
+      const brand = (p.b || '').toLowerCase();
+      const colors = (p.cl || '').toLowerCase();
+      const srcStyles = (p.src || []).map(s => (s.ss || '').toLowerCase());
+      const allStyles = [style, ...srcStyles];
+      const haystack = `${name} ${brand} ${colors} ${allStyles.join(' ')}`;
+
+      // Must match ALL terms somewhere
+      if (!terms.every(t => haystack.includes(t))) continue;
+
+      let score = 0;
+
+      // Style number matching (highest priority)
+      for (const t of numericTerms) {
+        if (allStyles.some(s => s === t)) score += 100;          // exact style match: "5000" = "5000"
+        else if (allStyles.some(s => s.replace(/^[a-z]+/i, '') === t)) score += 90; // prefix-stripped: "G5000" → "5000"
+        else if (allStyles.some(s => s.includes(t))) score += 60; // substring: "5000" in "5000L"
+      }
+
+      // Brand matching
+      for (const t of alphaTerms) {
+        if (brand === t) score += 50;              // exact brand
+        else if (brand.includes(t)) score += 30;   // partial brand
+      }
+
+      // Name matching
+      for (const t of terms) {
+        if (name.includes(t)) score += 10;
+      }
+
+      // Exact full query match in name
+      if (name.includes(q)) score += 20;
+
+      // Prefer shorter style numbers (more specific match)
+      if (style.length > 0 && style.length <= 6) score += 5;
+
+      // Boost favorites
+      if (p.hi) score += 15;
+
+      scored.push({ p, score });
+    }
+
+    // Sort by score desc, then alphabetically by name for ties
+    scored.sort((a, b) => b.score - a.score || a.p.n.localeCompare(b.p.n));
+    results = scored.map(s => s.p);
+  } else {
+    results = catalog.products;
+  }
+
+  // Apply facet filters
+  if (cat) results = results.filter(p => p.c === cat);
+  if (brand) results = results.filter(p => p.b === brand);
+  if (gender) results = results.filter(p => p.g === gender);
+  if (subcat) results = results.filter(p => p.sc === subcat);
+  if (supplier) results = results.filter(p => (p.src || []).some(s => s.v === supplier));
+  if (priceMin > 0) results = results.filter(p => (p.dc || 0) >= priceMin);
+  if (priceMax < Infinity) results = results.filter(p => (p.dc || 0) <= priceMax);
+
+  filtered = results;
+  currentPage = 1;
+  renderResults();
+  saveHashState();
+}
+
+// ---------------------------------------------------------------------------
+// Rendering
+// ---------------------------------------------------------------------------
+function renderResults() {
+  const total = filtered.length;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const page = filtered.slice(start, start + PAGE_SIZE);
+
+  // Result count
+  const q = $search.value.trim();
+  if (q) {
+    $resultCount.textContent = `${total.toLocaleString()} result${total !== 1 ? 's' : ''} for "${q}"`;
+  } else {
+    $resultCount.textContent = `${total.toLocaleString()} product${total !== 1 ? 's' : ''}`;
+  }
+
+  // Empty state
+  $empty.classList.toggle('hidden', page.length > 0);
+  $grid.classList.toggle('hidden', page.length === 0);
+
+  // Cards
+  $grid.innerHTML = page.map(p => productCard(p)).join('');
+
+  // Pagination
+  renderPagination(totalPages);
+
+  // Scroll to top on page change
+  if (currentPage > 1) {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+}
+
+function productCard(p) {
+  const sources = p.src || [];
+  // Best price across all sources
+  const bestPrice = p.dc;
+  const priceHtml = bestPrice != null
+    ? `<span class="text-slate-900 font-semibold">$${bestPrice.toFixed(2)}</span>`
+    : '<span class="text-slate-400 text-xs">No price</span>';
+
+  // Vendor pills — show up to 3
+  const vendors = sources.map(s => s.v);
+  const vendorHtml = vendors.length > 0
+    ? `<div class="flex flex-wrap gap-1 mt-1.5">${vendors.slice(0, 3).map(v =>
+        `<span class="inline-block px-1.5 py-0.5 bg-slate-100 text-slate-500 text-[10px] rounded leading-none">${esc(v)}</span>`
+      ).join('')}${vendors.length > 3 ? `<span class="text-[10px] text-slate-400">+${vendors.length - 3}</span>` : ''}</div>`
+    : '';
+
+  const avBadge = p.av === 'Discontinued'
+    ? '<span class="badge bg-red-50 text-red-600">Discontinued</span>'
+    : p.av === 'New'
+    ? '<span class="badge bg-emerald-50 text-emerald-600">New</span>'
+    : p.av === 'Coming Soon'
+    ? '<span class="badge bg-amber-50 text-amber-600">Coming Soon</span>'
+    : '';
+
+  const imgHtml = p.img
+    ? `<img src="${p.img}" alt="${esc(p.n)}" loading="lazy" class="w-full h-full object-contain" onerror="this.parentElement.innerHTML=placeholderSvg()">`
+    : placeholderSvg();
+
+  // Multi-source price range indicator
+  const pricedSources = sources.filter(s => s.pp != null);
+  let priceRange = '';
+  if (pricedSources.length > 1) {
+    const prices = pricedSources.map(s => s.pp);
+    const lo = Math.min(...prices);
+    const hi = Math.max(...prices);
+    if (lo !== hi) {
+      priceRange = `<span class="text-[11px] text-slate-400">$${lo.toFixed(2)} - $${hi.toFixed(2)}</span>`;
+    }
+  }
+
+  return `
+    <div class="product-card bg-white rounded-lg overflow-hidden border border-slate-100" onclick="openDetail('${p.id}')">
+      <div class="relative aspect-[4/5] bg-slate-50 flex items-center justify-center p-2 overflow-hidden">
+        ${imgHtml}
+        ${avBadge ? `<div class="absolute top-2 left-2">${avBadge}</div>` : ''}
+        ${p.hi ? '<div class="absolute top-2 right-2"><span class="badge bg-brand-cyan/10 text-brand-cyan">Featured</span></div>' : ''}
+        ${sources.length > 1 ? `<div class="absolute bottom-2 right-2"><span class="badge bg-white/90 text-slate-600 shadow-sm">${sources.length} vendors</span></div>` : ''}
+      </div>
+      <div class="p-3">
+        <p class="text-xs text-slate-400 font-mono">${esc(p.s)}</p>
+        <p class="text-sm font-medium text-slate-900 mt-0.5 line-clamp-2 leading-snug">${esc(p.n)}</p>
+        <p class="text-xs text-slate-500 mt-0.5">${esc(p.b)}</p>
+        ${p.c ? `<p class="text-[11px] text-slate-400 mt-0.5">${esc(p.c)}${p.sc ? ' &rsaquo; ' + esc(p.sc) : ''}</p>` : ''}
+        <div class="flex items-baseline gap-2 mt-2">
+          ${priceHtml}
+          ${priceRange}
+        </div>
+        ${vendorHtml}
+        <div class="flex items-center gap-2 mt-1.5 text-[11px] text-slate-400">
+          ${p.sz ? `<span>${esc(p.sz)}</span>` : ''}
+          ${p.cc ? `<span>${p.cc} color${p.cc !== 1 ? 's' : ''}</span>` : ''}
+          ${p.g ? `<span>${esc(p.g)}</span>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+function placeholderSvg() {
+  return `<svg class="w-10 h-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>`;
+}
+
+function renderPagination(totalPages) {
+  if (totalPages <= 1) { $pagination.innerHTML = ''; return; }
+
+  let html = '';
+  const btnClass = 'h-8 min-w-[32px] px-2 text-sm rounded-md transition-colors';
+
+  // Prev
+  html += `<button class="${btnClass} ${currentPage === 1 ? 'text-slate-300 cursor-default' : 'text-slate-600 hover:bg-slate-100'}" ${currentPage === 1 ? 'disabled' : ''} onclick="goPage(${currentPage - 1})">&lsaquo;</button>`;
+
+  // Page numbers
+  const pages = getPageNumbers(currentPage, totalPages);
+  for (const pg of pages) {
+    if (pg === '...') {
+      html += `<span class="${btnClass} flex items-center justify-center text-slate-400">&hellip;</span>`;
+    } else {
+      const active = pg === currentPage;
+      html += `<button class="${btnClass} ${active ? 'bg-navy text-white font-medium' : 'text-slate-600 hover:bg-slate-100'}" onclick="goPage(${pg})">${pg}</button>`;
+    }
+  }
+
+  // Next
+  html += `<button class="${btnClass} ${currentPage === totalPages ? 'text-slate-300 cursor-default' : 'text-slate-600 hover:bg-slate-100'}" ${currentPage === totalPages ? 'disabled' : ''} onclick="goPage(${currentPage + 1})">&rsaquo;</button>`;
+
+  $pagination.innerHTML = html;
+}
+
+function getPageNumbers(current, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages = [1];
+  if (current > 3) pages.push('...');
+  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) pages.push(i);
+  if (current < total - 2) pages.push('...');
+  pages.push(total);
+  return pages;
+}
+
+function goPage(pg) {
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  if (pg < 1 || pg > totalPages) return;
+  currentPage = pg;
+  renderResults();
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
+
+// ---------------------------------------------------------------------------
+// Detail Modal
+// ---------------------------------------------------------------------------
+function openDetail(id) {
+  const p = catalog.products.find(x => x.id === id);
+  if (!p) return;
+
+  document.getElementById('modalTitle').textContent = p.n;
+
+  const imgHtml = p.img
+    ? `<img src="${p.img}" alt="${esc(p.n)}" class="w-full h-full object-contain">`
+    : `<div class="w-full h-full flex items-center justify-center">${placeholderSvg()}</div>`;
+
+  // Parse colors into chips
+  const colorChips = p.cl ? p.cl.split(',').map(c => c.trim()).filter(Boolean) : [];
+
+  const sources = p.src || [];
+  // Find lowest priced source
+  const pricedSources = sources.filter(s => s.pp != null);
+  const lowestPrice = pricedSources.length > 0 ? Math.min(...pricedSources.map(s => s.pp)) : null;
+
+  // Vendor pricing table
+  const vendorTableHtml = sources.length > 0 ? `
+    <div>
+      <p class="text-[11px] uppercase tracking-wider text-slate-400 font-medium mb-2">Vendor Pricing</p>
+      <div class="border border-slate-200 rounded-lg overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-slate-50 text-left">
+              <th class="px-3 py-2 text-[11px] uppercase tracking-wider text-slate-400 font-medium">Vendor</th>
+              <th class="px-3 py-2 text-[11px] uppercase tracking-wider text-slate-400 font-medium">Style</th>
+              <th class="px-3 py-2 text-[11px] uppercase tracking-wider text-slate-400 font-medium text-right">Piece</th>
+              <th class="px-3 py-2 text-[11px] uppercase tracking-wider text-slate-400 font-medium text-right">Case</th>
+              <th class="px-3 py-2 text-[11px] uppercase tracking-wider text-slate-400 font-medium text-right">Sale</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sources.map(s => {
+              const isLowest = s.pp != null && s.pp === lowestPrice && pricedSources.length > 1;
+              return `<tr class="border-t border-slate-100 ${isLowest ? 'bg-emerald-50/50' : ''}">
+                <td class="px-3 py-2 text-slate-700 font-medium">
+                  ${s.u ? `<a href="${esc(s.u)}" target="_blank" class="text-brand-cyan hover:underline">${esc(s.v)}</a>` : esc(s.v)}${s.pf ? ' <span class="text-[10px] text-brand-cyan font-medium">PREF</span>' : ''}
+                </td>
+                <td class="px-3 py-2 text-slate-500 font-mono text-xs">${esc(s.ss)}</td>
+                <td class="px-3 py-2 text-right ${isLowest ? 'text-emerald-700 font-semibold' : 'text-slate-700'}">
+                  ${s.pp != null ? '$' + s.pp.toFixed(2) : '-'}${isLowest ? ' <span class="text-[10px]">LOW</span>' : ''}
+                </td>
+                <td class="px-3 py-2 text-right text-slate-500">
+                  ${s.cp != null ? '$' + s.cp.toFixed(2) + (s.cs ? ' <span class="text-[10px] text-slate-400">/' + s.cs + '</span>' : '') : '-'}
+                </td>
+                <td class="px-3 py-2 text-right ${s.sp != null ? 'text-red-600 font-medium' : 'text-slate-400'}">
+                  ${s.sp != null ? '$' + s.sp.toFixed(2) : '-'}
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>` : `
+    <div class="bg-slate-50 rounded-lg p-4">
+      <p class="text-[11px] uppercase tracking-wider text-slate-400 font-medium">Best Cost</p>
+      <p class="text-lg font-semibold text-slate-900 mt-0.5">${p.dc != null ? '$' + p.dc.toFixed(2) : '-'}</p>
+    </div>`;
+
+  document.getElementById('modalBody').innerHTML = `
+    <div class="grid md:grid-cols-2 gap-8">
+      <!-- Image -->
+      <div class="aspect-square bg-slate-50 rounded-lg flex items-center justify-center p-4 overflow-hidden">
+        ${imgHtml}
+      </div>
+
+      <!-- Details -->
+      <div class="space-y-5">
+        <!-- Header -->
+        <div>
+          <p class="font-mono text-sm text-slate-400">${esc(p.s)}</p>
+          <h3 class="text-xl font-semibold text-slate-900 mt-1">${esc(p.n)}</h3>
+          <p class="text-slate-500 mt-0.5">${esc(p.b)}</p>
+          ${p.c ? `<p class="text-sm text-slate-400 mt-0.5">${esc(p.c)}${p.sc ? ' &rsaquo; ' + esc(p.sc) : ''}</p>` : ''}
+        </div>
+
+        <!-- Vendor Pricing -->
+        ${vendorTableHtml}
+
+        <!-- Specs -->
+        <div class="grid grid-cols-2 gap-x-6 gap-y-3">
+          <div>
+            <p class="text-[11px] uppercase tracking-wider text-slate-400 font-medium">Gender</p>
+            <p class="text-sm text-slate-700">${esc(p.g || '-')}</p>
+          </div>
+          <div>
+            <p class="text-[11px] uppercase tracking-wider text-slate-400 font-medium">Size Range</p>
+            <p class="text-sm text-slate-700">${esc(p.sz || '-')}</p>
+          </div>
+          <div>
+            <p class="text-[11px] uppercase tracking-wider text-slate-400 font-medium">Availability</p>
+            <p class="text-sm text-slate-700">${esc(p.av)}</p>
+          </div>
+          <div>
+            <p class="text-[11px] uppercase tracking-wider text-slate-400 font-medium">Colors</p>
+            <p class="text-sm text-slate-700">${p.cc || 0} available</p>
+          </div>
+        </div>
+
+        <!-- Colors -->
+        ${colorChips.length > 0 ? `
+        <div>
+          <p class="text-[11px] uppercase tracking-wider text-slate-400 font-medium mb-2">Available Colors</p>
+          <div class="flex flex-wrap gap-1.5">
+            ${colorChips.map(c => `<span class="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs rounded-full">${esc(c)}</span>`).join('')}
+          </div>
+        </div>` : ''}
+
+        <!-- Sport tags -->
+        ${p.sp && p.sp.length > 0 ? `
+        <div>
+          <p class="text-[11px] uppercase tracking-wider text-slate-400 font-medium mb-2">Sports</p>
+          <div class="flex flex-wrap gap-1.5">
+            ${p.sp.map(s => `<span class="px-2 py-0.5 bg-brand-cyan/10 text-brand-cyan text-xs rounded-full font-medium">${esc(s)}</span>`).join('')}
+          </div>
+        </div>` : ''}
+
+        <!-- Description -->
+        ${p.d ? `
+        <div>
+          <p class="text-[11px] uppercase tracking-wider text-slate-400 font-medium mb-1">Description</p>
+          <p class="text-sm text-slate-600 leading-relaxed">${esc(p.d)}</p>
+        </div>` : ''}
+
+        <!-- Actions -->
+        <div class="flex items-center gap-2 pt-2">
+          <button onclick="copyText('${esc(p.s)}')" class="h-8 px-3 bg-slate-100 text-slate-700 text-sm rounded-md hover:bg-slate-200 transition-colors flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            Copy Style #
+          </button>
+          <button onclick="copyProductSummary('${p.id}')" class="h-8 px-3 bg-slate-100 text-slate-700 text-sm rounded-md hover:bg-slate-200 transition-colors flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Copy Summary
+          </button>
+          <a href="https://airtable.com/appfC35UVUNwuw4OK/tblAejjmCj05WUkMQ/${p.id}" target="_blank"
+             class="h-8 px-3 bg-slate-100 text-slate-700 text-sm rounded-md hover:bg-slate-200 transition-colors flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+            Airtable
+          </a>
+        </div>
+      </div>
+    </div>`;
+
+  $modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  $modal.classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(() => showToast('Copied!'));
+}
+
+function copyProductSummary(id) {
+  const p = catalog.products.find(x => x.id === id);
+  if (!p) return;
+  const sources = p.src || [];
+  const vendorLines = sources.map(s => {
+    let line = `  ${s.v}: ${s.pp != null ? '$' + s.pp.toFixed(2) : 'no price'}`;
+    if (s.ss) line += ` (${s.ss})`;
+    if (s.pf) line += ' [preferred]';
+    return line;
+  });
+  const lines = [
+    p.n,
+    `Style: ${p.s}`,
+    `Brand: ${p.b}`,
+    p.c ? `Category: ${p.c}${p.sc ? ' > ' + p.sc : ''}` : null,
+    p.dc != null ? `Best Cost: $${p.dc.toFixed(2)}` : null,
+    vendorLines.length > 0 ? `Vendors:\n${vendorLines.join('\n')}` : null,
+    p.sz ? `Sizes: ${p.sz}` : null,
+    p.cc ? `${p.cc} colors available` : null,
+    p.g ? `Gender: ${p.g}` : null,
+  ].filter(Boolean).join('\n');
+  navigator.clipboard.writeText(lines).then(() => showToast('Summary copied!'));
+}
+
+// ---------------------------------------------------------------------------
+// Toast
+// ---------------------------------------------------------------------------
+function showToast(msg) {
+  const el = document.createElement('div');
+  el.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-4 py-2 rounded-lg shadow-lg z-[60] transition-opacity';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 1500);
+}
+
+// ---------------------------------------------------------------------------
+// URL hash state
+// ---------------------------------------------------------------------------
+function saveHashState() {
+  const params = new URLSearchParams();
+  if ($search.value) params.set('q', $search.value);
+  if ($category.value) params.set('cat', $category.value);
+  if (selectedBrand) params.set('brand', selectedBrand);
+  if ($gender.value) params.set('g', $gender.value);
+  if ($subcategory.value) params.set('sc', $subcategory.value);
+  if ($supplier.value) params.set('sup', $supplier.value);
+  if ($priceMin.value) params.set('pmin', $priceMin.value);
+  if ($priceMax.value) params.set('pmax', $priceMax.value);
+  const hash = params.toString();
+  history.replaceState(null, '', hash ? '#' + hash : location.pathname);
+}
+
+function loadHashState() {
+  if (!location.hash) return;
+  const params = new URLSearchParams(location.hash.slice(1));
+  if (params.get('q')) $search.value = params.get('q');
+  if (params.get('cat')) $category.value = params.get('cat');
+  if (params.get('brand')) { selectedBrand = params.get('brand'); $brandInput.value = selectedBrand; }
+  if (params.get('g')) $gender.value = params.get('g');
+  if (params.get('cat')) updateSubcategoryFilter();
+  if (params.get('sc')) $subcategory.value = params.get('sc');
+  if (params.get('sup')) $supplier.value = params.get('sup');
+  if (params.get('pmin')) $priceMin.value = params.get('pmin');
+  if (params.get('pmax')) $priceMax.value = params.get('pmax');
+}
+
+// ---------------------------------------------------------------------------
+// Event listeners
+// ---------------------------------------------------------------------------
+$search.addEventListener('input', debounceFilter);
+$category.addEventListener('change', () => { updateSubcategoryFilter(); applyFilters(); });
+$gender.addEventListener('change', applyFilters);
+$subcategory.addEventListener('change', applyFilters);
+$supplier.addEventListener('change', applyFilters);
+$priceMin.addEventListener('input', debounceFilter);
+$priceMax.addEventListener('input', debounceFilter);
+
+$searchClear.addEventListener('click', () => {
+  $search.value = '';
+  applyFilters();
+  $search.focus();
+});
+
+$clearBtn.addEventListener('click', () => {
+  $search.value = '';
+  $category.value = '';
+  selectedBrand = '';
+  $brandInput.value = '';
+  $gender.value = '';
+  $subcategory.value = '';
+  $subcategory.classList.add('hidden');
+  $supplier.value = '';
+  $priceMin.value = '';
+  $priceMax.value = '';
+  applyFilters();
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.key === '/' && document.activeElement !== $search && document.activeElement !== $brandInput && document.activeElement.tagName !== 'INPUT') {
+    e.preventDefault();
+    $search.focus();
+    $search.select();
+  }
+  if (e.key === 'Escape') {
+    if (!$modal.classList.contains('hidden')) {
+      closeModal();
+    } else if (document.activeElement === $search) {
+      $search.blur();
+    }
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ---------------------------------------------------------------------------
+// Tabs — All Products vs Favorites
+// ---------------------------------------------------------------------------
+let activeTab = 'all';
+
+function switchTab(tab) {
+  activeTab = tab;
+  const $tabAll = document.getElementById('tabAll');
+  const $tabFav = document.getElementById('tabFavorites');
+  const $filterBar = document.getElementById('filterBar');
+  const $favView = document.getElementById('favoritesView');
+
+  if (tab === 'all') {
+    $tabAll.className = 'tab-btn px-5 py-2.5 text-sm font-medium border-b-2 border-brand-cyan text-brand-cyan';
+    $tabFav.className = 'tab-btn px-5 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700';
+    $filterBar.classList.remove('hidden');
+    $results.classList.remove('hidden');
+    $favView.classList.add('hidden');
+    applyFilters();
+  } else {
+    $tabFav.className = 'tab-btn px-5 py-2.5 text-sm font-medium border-b-2 border-brand-cyan text-brand-cyan';
+    $tabAll.className = 'tab-btn px-5 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700';
+    $filterBar.classList.add('hidden');
+    $results.classList.add('hidden');
+    $favView.classList.remove('hidden');
+    renderFavorites();
+  }
+}
+
+function renderFavorites() {
+  const $favView = document.getElementById('favoritesView');
+  const favorites = catalog.products.filter(p => p.hi);
+
+  // Group by category + subcategory
+  const groups = {};
+  for (const p of favorites) {
+    // Use subcategory if available, otherwise category
+    let groupName = p.sc || p.c || 'Other';
+    // Normalize common subcategories to friendly names
+    const friendlyNames = {
+      'Core': 'T-Shirts',
+      'Premium': 'Premium T-Shirts',
+      'Long Sleeve': 'Long Sleeve Tees',
+      'Hoodie': 'Hoodies',
+      'Full-Zip Hoodie': 'Full-Zip Hoodies',
+      'Crewneck': 'Crewneck Sweatshirts',
+      'Performance': 'Performance Polos',
+      'Quarter-Zip': 'Quarter-Zips',
+      'Dad Hat / Baseball Cap': 'Caps & Hats',
+      'Snapback Hat': 'Caps & Hats',
+      'Trucker Hat': 'Caps & Hats',
+      'Beanie': 'Beanies',
+    };
+    if (friendlyNames[groupName]) groupName = friendlyNames[groupName];
+
+    // For products with category but no subcategory, use category directly
+    if (!p.sc && p.c) groupName = p.c;
+
+    if (!groups[groupName]) groups[groupName] = [];
+    groups[groupName].push(p);
+  }
+
+  // Sort groups by size (most products first), then sort products within by price
+  const sortedGroups = Object.entries(groups)
+    .sort((a, b) => b[1].length - a[1].length);
+
+  let html = `
+    <div class="mb-6">
+      <h2 class="text-2xl font-semibold text-slate-900">Secondslide Favorites</h2>
+      <p class="text-sm text-slate-500 mt-1">${favorites.length} products our team sells the most</p>
+    </div>`;
+
+  for (const [groupName, products] of sortedGroups) {
+    // Sort by price within group
+    products.sort((a, b) => (a.dc || 999) - (b.dc || 999));
+
+    html += `
+      <div class="mb-8">
+        <h3 class="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2">
+          ${esc(groupName)}
+          <span class="text-xs font-normal text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">${products.length}</span>
+        </h3>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          ${products.map(p => productCard(p)).join('')}
+        </div>
+      </div>`;
+  }
+
+  if (favorites.length === 0) {
+    html = `
+      <div class="flex flex-col items-center justify-center py-20 text-center">
+        <p class="text-slate-500 text-lg font-medium">No favorites yet</p>
+        <p class="text-slate-400 text-sm mt-1">Mark products as highlighted in Airtable to feature them here</p>
+      </div>`;
+  }
+
+  $favView.innerHTML = html;
+}
+
+// ---------------------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------------------
+init();
+</script>
+</body>
+</html>
