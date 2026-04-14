@@ -108,12 +108,8 @@ tailwind.config = {
 <!-- PIN Gate -->
 <div id="pinGate" class="fixed inset-0 z-[100] bg-navy-dark flex items-center justify-center">
   <div class="text-center">
-    <div class="flex items-center justify-center gap-2 mb-6">
-      <svg width="32" height="32" viewBox="0 0 100 100">
-        <path d="M25 50 C25 30, 50 30, 50 50 C50 70, 75 70, 75 50 C75 30, 50 30, 50 50 C50 70, 25 70, 25 50Z" fill="none" stroke="#00C8FF" stroke-width="6"/>
-        <path d="M25 50 C25 70, 50 70, 50 50 C50 30, 75 30, 75 50 C75 70, 50 70, 50 50 C50 30, 25 30, 25 50Z" fill="none" stroke="white" stroke-width="6"/>
-      </svg>
-      <span class="text-white text-lg font-semibold tracking-wide">SECONDSLIDE</span>
+    <div class="flex items-center justify-center mb-6">
+      <img src="./logo.png" alt="Secondslide" class="h-8 brightness-0 invert" />
     </div>
     <p class="text-slate-400 text-sm mb-4">Enter PIN to access the product catalog</p>
     <input id="pinInput" type="password" maxlength="30" placeholder="PIN"
@@ -154,13 +150,7 @@ if (sessionStorage.getItem('catalogAuth') === 'true') {
     <!-- Top bar -->
     <div class="flex items-center justify-between h-14">
       <div class="flex items-center gap-3">
-        <div class="flex items-center gap-1.5">
-          <svg width="24" height="24" viewBox="0 0 100 100" class="shrink-0">
-            <path d="M25 50 C25 30, 50 30, 50 50 C50 70, 75 70, 75 50 C75 30, 50 30, 50 50 C50 70, 25 70, 25 50Z" fill="none" stroke="#00C8FF" stroke-width="6"/>
-            <path d="M25 50 C25 70, 50 70, 50 50 C50 30, 75 30, 75 50 C75 70, 50 70, 50 50 C50 30, 25 30, 25 50Z" fill="none" stroke="white" stroke-width="6"/>
-          </svg>
-          <span class="text-sm font-semibold tracking-wide">SECONDSLIDE</span>
-        </div>
+        <img src="./logo.png" alt="Secondslide" class="h-6 brightness-0 invert shrink-0" />
         <span class="text-slate-400 text-sm hidden sm:inline">/</span>
         <span class="text-slate-300 text-sm font-medium hidden sm:inline">Product Catalog</span>
       </div>
