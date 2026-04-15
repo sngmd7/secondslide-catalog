@@ -192,6 +192,12 @@ if (sessionStorage.getItem('catalogAuth') === 'true') {
       <button id="tabFavorites" onclick="switchTab('favorites')" class="tab-btn px-5 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700">
         Secondslide Favorites
       </button>
+      <button id="tabFE" onclick="switchTab('fe')" class="tab-btn px-5 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700">
+        Fulfill Engine
+      </button>
+      <button id="tabSigns" onclick="switchTab('signs')" class="tab-btn px-5 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700">
+        Signs & Banners
+      </button>
     </div>
   </div>
 </div>
@@ -256,6 +262,12 @@ if (sessionStorage.getItem('catalogAuth') === 'true') {
 
 <!-- Favorites View (hidden by default) -->
 <div id="favoritesView" class="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 hidden"></div>
+
+<!-- Fulfill Engine View -->
+<div id="feView" class="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 hidden"></div>
+
+<!-- Signs & Banners View -->
+<div id="signsView" class="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 hidden"></div>
 
 <!-- Loading State -->
 <div id="loadingState" class="max-w-[1600px] mx-auto px-4 sm:px-6 py-12">
@@ -1024,26 +1036,86 @@ let activeTab = 'all';
 
 function switchTab(tab) {
   activeTab = tab;
-  const $tabAll = document.getElementById('tabAll');
-  const $tabFav = document.getElementById('tabFavorites');
-  const $filterBar = document.getElementById('filterBar');
-  const $favView = document.getElementById('favoritesView');
+  const tabs = ['tabAll', 'tabFavorites', 'tabFE', 'tabSigns'];
+  const views = { all: null, favorites: 'favoritesView', fe: 'feView', signs: 'signsView' };
+  const activeClass = 'tab-btn px-5 py-2.5 text-sm font-medium border-b-2 border-brand-cyan text-brand-cyan';
+  const inactiveClass = 'tab-btn px-5 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700';
 
-  if (tab === 'all') {
-    $tabAll.className = 'tab-btn px-5 py-2.5 text-sm font-medium border-b-2 border-brand-cyan text-brand-cyan';
-    $tabFav.className = 'tab-btn px-5 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700';
-    $filterBar.classList.remove('hidden');
-    $results.classList.remove('hidden');
-    $favView.classList.add('hidden');
-    applyFilters();
-  } else {
-    $tabFav.className = 'tab-btn px-5 py-2.5 text-sm font-medium border-b-2 border-brand-cyan text-brand-cyan';
-    $tabAll.className = 'tab-btn px-5 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700';
-    $filterBar.classList.add('hidden');
-    $results.classList.add('hidden');
-    $favView.classList.remove('hidden');
-    renderFavorites();
+  // Update tab styles
+  for (const t of tabs) {
+    const el = document.getElementById(t);
+    if (el) el.className = (t === 'tab' + tab.charAt(0).toUpperCase() + tab.slice(1) ||
+                            t === 'tabAll' && tab === 'all' ||
+                            t === 'tabFavorites' && tab === 'favorites' ||
+                            t === 'tabFE' && tab === 'fe' ||
+                            t === 'tabSigns' && tab === 'signs') ? activeClass : inactiveClass;
   }
+  // Simpler: just set all inactive then active
+  tabs.forEach(t => { const el = document.getElementById(t); if (el) el.className = inactiveClass; });
+  const activeId = tab === 'all' ? 'tabAll' : tab === 'favorites' ? 'tabFavorites' : tab === 'fe' ? 'tabFE' : 'tabSigns';
+  document.getElementById(activeId).className = activeClass;
+
+  // Show/hide views
+  const $filterBar = document.getElementById('filterBar');
+  $results.classList.toggle('hidden', tab !== 'all');
+  $filterBar.classList.toggle('hidden', tab !== 'all');
+  document.getElementById('favoritesView').classList.toggle('hidden', tab !== 'favorites');
+  document.getElementById('feView').classList.toggle('hidden', tab !== 'fe');
+  document.getElementById('signsView').classList.toggle('hidden', tab !== 'signs');
+
+  if (tab === 'all') applyFilters();
+  else if (tab === 'favorites') renderFavorites();
+  else if (tab === 'fe') renderFEView();
+  else if (tab === 'signs') renderSignsView();
+}
+
+function renderGroupedView(targetId, title, subtitle, products, groupByField) {
+  const $view = document.getElementById(targetId);
+  const groups = {};
+  for (const p of products) {
+    let groupName = groupByField === 'subcategory' ? (p.sc || p.c || 'Other') : (p.c || 'Other');
+    if (!groups[groupName]) groups[groupName] = [];
+    groups[groupName].push(p);
+  }
+
+  const sortedGroups = Object.entries(groups).sort((a, b) => b[1].length - a[1].length);
+
+  let html = `
+    <div class="mb-6">
+      <h2 class="text-2xl font-semibold text-slate-900">${esc(title)}</h2>
+      <p class="text-sm text-slate-500 mt-1">${esc(subtitle)}</p>
+    </div>`;
+
+  for (const [groupName, prods] of sortedGroups) {
+    prods.sort((a, b) => (a.dc || 999) - (b.dc || 999));
+    html += `
+      <div class="mb-8">
+        <h3 class="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2">
+          ${esc(groupName)}
+          <span class="text-xs font-normal text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">${prods.length}</span>
+        </h3>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          ${prods.map(p => productCard(p)).join('')}
+        </div>
+      </div>`;
+  }
+
+  if (products.length === 0) {
+    html = `<div class="flex flex-col items-center justify-center py-20 text-center">
+      <p class="text-slate-500 text-lg font-medium">No products found</p></div>`;
+  }
+
+  $view.innerHTML = html;
+}
+
+function renderFEView() {
+  const feProducts = catalog.products.filter(p => (p.src || []).some(s => s.v === 'Fulfill Engine'));
+  renderGroupedView('feView', 'Fulfill Engine Products', feProducts.length + ' products available through Fulfill Engine', feProducts, 'category');
+}
+
+function renderSignsView() {
+  const signsProducts = catalog.products.filter(p => p.b === '4over');
+  renderGroupedView('signsView', 'Signs & Banners', signsProducts.length + ' products from 4over', signsProducts, 'subcategory');
 }
 
 function renderFavorites() {
